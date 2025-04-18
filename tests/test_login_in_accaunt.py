@@ -1,0 +1,58 @@
+import requests
+import allure
+from app.urls import BASE_URL
+
+@allure.title('Тест входа в аккаунт пользователя')
+class TestLogin:
+
+    @allure.step('Проверка входа в аккаунт с корректными данными')
+    def test_login_with_correct_data_success_login(self, register_new_user_and_return_email_password_name):
+        email, password, name = register_new_user_and_return_email_password_name
+        payload = {"email": email, "password": password, "name": name}
+        requests.post(f'{BASE_URL}api/auth/register', data=payload)
+
+        payload_auth = {"email": email, "password": password}
+        response_auth = requests.post(f'{BASE_URL}api/auth/login', payload_auth)
+        response_auth_json = response_auth.json()
+        token_auth = response_auth_json.get('accessToken')
+        token_out = response_auth_json.get('refreshToken')
+
+        assert response_auth.status_code == 200
+        assert response_auth.json() == {
+            "success": True,
+            "accessToken": token_auth,
+            "refreshToken": token_out,
+            "user": {
+            "email": email,
+            "name": name}
+        }
+
+    @allure.step('Проверка невозможности входа в аккаунт с некорректным email')
+    def test_login_with_incorrect_email_error_login(self, register_new_user_and_return_email_password_name):
+        email, password, name = register_new_user_and_return_email_password_name
+        payload = {"email": email, "password": password, "name": name}
+        requests.post(f'{BASE_URL}api/auth/register', data=payload)
+
+        payload_auth = {"email": f'1{email}', "password": password, "name": name}
+        response_auth = requests.post(f'{BASE_URL}api/auth/login', payload_auth)
+
+        assert response_auth.status_code == 401
+        assert response_auth.json() == {
+            "success": False,
+            "message": "email or password are incorrect"
+        }
+
+    @allure.step('Проверка невозможности входа в аккаунт с некорректным паролем')
+    def test_login_with_incorrect_password_error_login(self, register_new_user_and_return_email_password_name):
+        email, password, name = register_new_user_and_return_email_password_name
+        payload = {"email": email, "password": password, "name": name}
+        requests.post(f'{BASE_URL}api/auth/register', data=payload)
+
+        payload_auth = payload = {"email": email, "password": f'1{password}', "name": name}
+        response_auth = requests.post(f'{BASE_URL}api/auth/login', payload_auth)
+
+        assert response_auth.status_code == 401
+        assert response_auth.json() == {
+            "success": False,
+            "message": "email or password are incorrect"
+        }

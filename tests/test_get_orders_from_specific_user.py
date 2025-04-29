@@ -1,52 +1,61 @@
 import requests
 import pytest
 import allure
-from app.urls import BASE_URL
+from app.urls import URL_AUTH_LOGOUT, URL_AUTH_LOGIN, URL_AUTH_REGISTER, URL_ORDERS
 from app.helpers.auxiliary_functions import get_hash_ingredients_for_order
 
 @allure.title('Тест получения заказов конкретного пользователя')
-class TestGetOrderFromUser:
+class TestGetOrderFromUser :
 
     @allure.step('Проверка получения заказа конкретного пользователя')
     @pytest.mark.parametrize('value, response', [[4, 4], [54, 50]])
     def test_get_order_from_user_with_auth_get_order(self, register_new_user_and_return_email_password_name, value, response):
-        email, password, name = register_new_user_and_return_email_password_name
-        payload = {"email": email, "password": password, "name": name}
-        requests.post(f'{BASE_URL}api/auth/register', data=payload)
+        with allure.step('Регистрация нового пользователя'):
+            email, password, name = register_new_user_and_return_email_password_name
+            payload = {"email": email, "password": password, "name": name}
+            requests.post(url=URL_AUTH_REGISTER, data=payload)
 
-        payload_auth = {"email": email, "password": password}
-        response_aurh = requests.post(f'{BASE_URL}api/auth/login', payload_auth)
-        response_aurh_token = response_aurh.json().get('accessToken')
+        with allure.step('Авторизация пользователя'):
+            payload_auth = {"email": email, "password": password}
+            response_auth = requests.post(URL_AUTH_LOGIN, payload_auth)
+            response_auth_token = response_auth.json().get('accessToken')
 
-        payload_order = get_hash_ingredients_for_order()
-        for i in range(value):
-             requests.post(f'{BASE_URL}api/orders', data=payload_order, headers={'Authorization':response_aurh_token})
-        response_order = requests.get(f'{BASE_URL}api/orders', headers={'Authorization':response_aurh_token})
-        response_order_json = response_order.json()
-        list_orders = response_order_json['orders']
+        with allure.step('Создание заказов'):
+            payload_order = get_hash_ingredients_for_order()
+            for i in range(value):
+                requests.post(url=URL_ORDERS, data=payload_order, headers={'Authorization': response_auth_token})
+
+        with allure.step('Получение списка заказов'):
+            response_order = requests.get(url=URL_ORDERS, headers={'Authorization': response_auth_token})
+            response_order_json = response_order.json()
+            list_orders = response_order_json['orders']
 
         assert response_order.status_code == 200
         assert len(list_orders) == response
 
     @allure.step('Проверка невозможности получения списка заказов конкретного пользователя без авторизации')
     def test_get_order_from_user_without_auth_error_get_order(self, register_new_user_and_return_email_password_name):
-        email, password, name = register_new_user_and_return_email_password_name
-        payload = {"email": email, "password": password, "name": name}
-        requests.post(f'{BASE_URL}api/auth/register', data=payload)
+        with allure.step('Регистрация нового пользователя'):
+            email, password, name = register_new_user_and_return_email_password_name
+            payload = {"email": email, "password": password, "name": name}
+            requests.post(url=URL_AUTH_REGISTER, data=payload)
 
-        payload_auth = {"email": email, "password": password}
-        response_aurh = requests.post(f'{BASE_URL}api/auth/login', payload_auth)
+        with allure.step('Авторизация пользователя'):
+            payload_auth = {"email": email, "password": password}
+            response_auth = requests.post(URL_AUTH_LOGIN, payload_auth)
+            response_auth_token = response_auth.json().get('accessToken')
+            response_refresh_token = response_auth.json().get('refreshToken')
 
-        response_aurh_token = response_aurh.json().get('accessToken')
-        response_refresh_token = response_aurh.json().get('refreshToken')
+        with allure.step('Создание заказа'):
+            payload_order = get_hash_ingredients_for_order()
+            requests.post(url=URL_ORDERS, data=payload_order, headers={'Authorization': response_auth_token})
 
-        payload_order = get_hash_ingredients_for_order()
-        requests.post(f'{BASE_URL}api/orders', data=payload_order, headers={'Authorization': response_aurh_token})
+        with allure.step('Выход из системы'):
+            data_for_out = {"token": response_refresh_token}
+            requests.post(url=URL_AUTH_LOGOUT, data=data_for_out)
 
-        data_for_out = {"token": response_refresh_token}
-        requests.post(f'{BASE_URL}api/auth/logout', data=data_for_out)
-
-        response_order = requests.get(f'{BASE_URL}api/orders')
+        with allure.step('Попытка получения списка заказов без авторизации'):
+            response_order = requests.get(url=URL_ORDERS)
 
         assert response_order.status_code == 401
         assert response_order.json() == {"success": False, "message": "You should be authorised"}

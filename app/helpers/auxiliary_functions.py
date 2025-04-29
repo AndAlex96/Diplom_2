@@ -1,7 +1,7 @@
 import random
 import string
 import requests
-from app.urls import BASE_URL
+from app.urls import URL_INGREDIENTS
 
 def generate_random_string(length):
     letters = string.ascii_lowercase
@@ -14,7 +14,7 @@ def generate_email_password_name():
     return [email, password, name]
 
 def get_hash_ingredients_for_order():
-    get_hash_ingredients = requests.get(f'{BASE_URL}api/ingredients')
+    get_hash_ingredients = requests.get(URL_INGREDIENTS)
     get_hash_ingredients_json = get_hash_ingredients.json()
 
     ingredients = get_hash_ingredients_json['data']
